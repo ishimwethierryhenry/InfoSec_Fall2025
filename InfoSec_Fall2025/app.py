@@ -1,139 +1,216 @@
 """
 Information Security Fall 2025 Lab - Flask Application
 -----------------------------------------------------
-Short description: Minimal course-branded web app that supports registration
-(Name, Andrew ID, Password), login, session-based greeting, and logout.
-Includes a landing page and CMU-themed styling.
+Short description: Course-branded web app that supports registration
+(Name, Andrew ID, Password), login, session-based greeting, logout,
+and file sharing functionality for Lab 2.
+Includes a landing page, CMU-themed styling, and basic file operations.
 
 Routes:
 - GET /          : Landing page with welcome message + Login/Register buttons.
 - GET/POST /register : Register with name, Andrew ID, and password; on success redirect to /login.
 - GET/POST /login    : Login with Andrew ID + password; on success redirect to /dashboard.
-- GET /dashboard     : Greets authenticated user: "Hello {Name}, Welcome to Lab 0 of Information Security course. Enjoy!!!"
+- GET /dashboard     : Dashboard with greeting, file upload form, and list of all uploaded files.
 - GET /logout        : Clear session and return to landing page.
-"""
-from flask import Flask, request, redirect, render_template, session, url_for, flash
-import sqlite3, os
+- POST /upload       : Handle file uploads; save file to uploads/ folder and metadata to database.
+- GET /download/<filename> : Download a file from the uploads/ folder.
+- POST /delete/<filename>  : Delete a file from both database and uploads/ folder.
 
+Lab 2 Features:
+- File upload functionality with form on dashboard
+- File listing showing filename, uploader, and upload timestamp
+- File download capability for any logged-in user
+- File deletion capability for any logged-in user
+- All files visible to all logged-in users (no ownership restrictions)
+"""  
+
+
+from flask import Flask, request, redirect, render_template, session, url_for, flash, send_from_directory
+import sqlite3
+import os
+
+# Make a new Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("APP_SECRET_KEY", "change-me-in-production")
+app.secret_key = "my-secret-key-for-school-project"
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(BASE_DIR, "infosec_lab.db")
+# Where to put files
+uploads_folder = 'uploads'
 
-# ---------------- Database Helpers ----------------
-def get_db():
-    """Open a connection to SQLite with Row access."""
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# Make the uploads folder if it doesn't exist
+if not os.path.exists(uploads_folder):
+    os.makedirs(uploads_folder)
 
-def init_db():
-    """Initialize the database by executing schema.sql (single source of truth)."""
-    schema_path = os.path.join(BASE_DIR, "schema.sql")
-    with open(schema_path, "r", encoding="utf-8") as f:
-        schema_sql = f.read()
-    conn = get_db()
-    try:
-        conn.executescript(schema_sql)
-        conn.commit()
-    finally:
-        conn.close()
+# Database stuff
+def get_database():
+    db = sqlite3.connect("infosec_lab.db")
+    db.row_factory = sqlite3.Row
+    return db
 
-# Ensure database is initialized at import time
-os.makedirs(BASE_DIR, exist_ok=True)
-init_db()
+def setup_database():
+    with open("schema.sql", "r") as file:
+        sql_commands = file.read()
+    db = get_database()
+    db.executescript(sql_commands)
+    db.commit()
+    db.close()
 
-# ---------------- Utility ----------------
-def current_user():
-    """Return the current logged-in user row or None."""
-    uid = session.get("user_id")
-    if not uid:
+# Setup database when app starts
+setup_database()
+
+# Check who is logged in
+def who_is_logged_in():
+    user_id = session.get("user_id")
+    if user_id is None:
         return None
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
-    conn.close()
+    
+    db = get_database()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    db.close()
     return user
 
-# ---------------- Routes ----------------
+# Home page
 @app.route("/")
 def index():
-    """Landing page with CMU-themed welcome and CTA buttons."""
-    return render_template("index.html", title="Information Security Fall 2025 Lab", user=current_user())
+    return render_template("index.html", title="My Security Lab", user=who_is_logged_in())
 
+# Register new user
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    """Register: capture name, Andrew ID, and password; redirect to login on success."""
     if request.method == "POST":
+        # Get form data
         name = request.form.get("name", "").strip()
         andrew_id = request.form.get("andrew_id", "").strip().lower()
         password = request.form.get("password", "")
 
-        # Basic validation
+        # Check if all fields filled
         if not name or not andrew_id or not password:
-            flash("All fields are required.", "error")
+            flash("Please fill all fields!", "error")
             return render_template("register.html", title="Register")
 
-        conn = get_db()
+        # Save to database
+        db = get_database()
         try:
-            conn.execute(
-                f"INSERT INTO users (name, andrew_id, password) VALUES ('{name}', '{andrew_id}', '{password}')"
-            )
-            conn.commit()
-            flash("Registration successful! Please log in.", "success")
+            db.execute("INSERT INTO users (name, andrew_id, password) VALUES (?, ?, ?)", 
+                      (name, andrew_id, password))
+            db.commit()
+            flash("You registered successfully! Now you can login.", "success")
             return redirect(url_for("login"))
-        except sqlite3.IntegrityError:
-            flash("That Andrew ID is already registered.", "error")
+        except:
+            flash("This Andrew ID is already taken!", "error")
             return render_template("register.html", title="Register", name=name, andrew_id=andrew_id)
         finally:
-            conn.close()
-    # GET
+            db.close()
+    
     return render_template("register.html", title="Register")
 
-
+# Login user
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Login with Andrew ID and password; redirect to dashboard on success."""
     if request.method == "POST":
+        # Get login info
         andrew_id = request.form.get("andrew_id", "").strip().lower()
         password = request.form.get("password", "")
 
-        conn = get_db()
-        query = f"SELECT * FROM users WHERE andrew_id = '{andrew_id}' AND password = '{password}'"
-        user = conn.execute(query).fetchone()
-        conn.close()
+        # Check if user exists
+        db = get_database()
+        user = db.execute("SELECT * FROM users WHERE andrew_id = ? AND password = ?", 
+                         (andrew_id, password)).fetchone()
+        db.close()
 
         if user:
+            # Login successful
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
             return redirect(url_for("dashboard"))
-        flash("Invalid Andrew ID or password.", "error")
+        else:
+            flash("Wrong Andrew ID or password!", "error")
+    
     return render_template("login.html", title="Login")
 
-
+# User dashboard
 @app.route("/dashboard")
 def dashboard():
-    """Authenticated page greeting the user per the requirements."""
-    user = current_user()
+    user = who_is_logged_in()
     if not user:
         return redirect(url_for("login"))
-    greeting = f"Hello {user['name']}, Welcome to Lab 0 of Information Security course. Enjoy!!!"
-    return render_template("dashboard.html", title="Dashboard", greeting=greeting, user=user)
+    
+    # Get all files
+    db = get_database()
+    all_files = db.execute("SELECT * FROM files ORDER BY upload_timestamp DESC").fetchall()
+    db.close()
+    
+    welcome_message = f"Hello {user['name']}, Welcome to Lab 2 of Information Security course. Enjoy your learning journey!!!"
+    return render_template("dashboard.html", title="Dashboard", greeting=welcome_message, user=user, files=all_files)
 
+# Logout
 @app.route("/logout")
 def logout():
-    """Clear session and return to the landing page."""
     session.clear()
     return redirect(url_for("index"))
 
-# Entrypoint for local dev
-if __name__ == "__main__":
-    # Initialize database if it does not exist
-    if not os.path.exists(DB_FILE):
-        print("[*] Initializing database...")
-        init_db()
-    else:
-        print("[*] Database already exists, skipping init.")
+# Upload file
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    user = who_is_logged_in()
+    if not user:
+        return redirect(url_for("login"))
+    
+    # Check if file exists
+    if 'file' not in request.files:
+        flash('You did not choose a file!', 'error')
+        return redirect(url_for('dashboard'))
+    
+    my_file = request.files['file']
+    if my_file.filename == '':
+        flash('You did not choose a file!', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Save the file
+    file_name = my_file.filename
+    file_path = os.path.join(uploads_folder, file_name)
+    my_file.save(file_path)
+    
+    # Save info to database
+    db = get_database()
+    db.execute("INSERT INTO files (filename, uploader_andrewid) VALUES (?, ?)", 
+              (file_name, user['andrew_id']))
+    db.commit()
+    db.close()
+    
+    flash('Your file was uploaded!', 'success')
+    return redirect(url_for('dashboard'))
 
-    # Start Flask application
+# Download file
+@app.route("/download/<filename>")
+def download_file(filename):
+    user = who_is_logged_in()
+    if not user:
+        return redirect(url_for("login"))
+    
+    return send_from_directory(uploads_folder, filename)
+
+# Delete file
+@app.route("/delete/<filename>", methods=["POST"])
+def delete_file(filename):
+    user = who_is_logged_in()
+    if not user:
+        return redirect(url_for("login"))
+    
+    # Remove from database
+    db = get_database()
+    db.execute("DELETE FROM files WHERE filename = ?", (filename,))
+    db.commit()
+    db.close()
+    
+    # Remove actual file
+    file_path = os.path.join(uploads_folder, filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    
+    flash('File deleted!', 'success')
+    return redirect(url_for('dashboard'))
+
+# Run the app
+if __name__ == "__main__":
+    print("Starting my Flask app...")
     app.run(host="0.0.0.0", port=5000, debug=True)

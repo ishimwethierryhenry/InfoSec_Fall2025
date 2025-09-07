@@ -146,6 +146,20 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
   color: inherit;
 }
 
+/* Simple table styling for file list */
+table {
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
 .toggle-password .icon-eye-off { display: none; }
 .toggle-password.is-visible .icon-eye { display: none; }
 .toggle-password.is-visible .icon-eye-off { display: inline; }
