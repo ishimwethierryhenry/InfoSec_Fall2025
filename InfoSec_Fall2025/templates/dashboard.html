@@ -1,0 +1,12 @@
+<!-- Information Security Fall 2025 Lab - Dashboard Short description: Greets the
+authenticated user with the lab welcome message. -->
+
+{% extends "base.html" %} {% block content %}
+<div class="card">
+  <h3>Dashboard</h3>
+  <p class="greeting">{{ greeting }}</p>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div>
+{% endblock %}
