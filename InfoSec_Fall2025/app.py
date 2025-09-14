@@ -6,6 +6,8 @@ Short description: Course-branded web app that supports registration
 and file sharing functionality for Lab 2.
 Includes a landing page, CMU-themed styling, and basic file operations.
 
+Lab 3 Update: Added secure password hashing with werkzeug.security
+
 Routes:
 - GET /          : Landing page with welcome message + Login/Register buttons.
 - GET/POST /register : Register with name, Andrew ID, and password; on success redirect to /login.
@@ -22,10 +24,16 @@ Lab 2 Features:
 - File download capability for any logged-in user
 - File deletion capability for any logged-in user
 - All files visible to all logged-in users (no ownership restrictions)
+
+Lab 3 Security Features:
+- Secure password hashing using PBKDF2-SHA256
+- Automatic salt generation for each password
+- Secure password verification during login
 """  
 
 
 from flask import Flask, request, redirect, render_template, session, url_for, flash, send_from_directory
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import os
 
@@ -73,7 +81,7 @@ def who_is_logged_in():
 def index():
     return render_template("index.html", title="My Security Lab", user=who_is_logged_in())
 
-# Register new user
+# Register new user - UPDATED FOR LAB 3 SECURITY
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -87,11 +95,15 @@ def register():
             flash("Please fill all fields!", "error")
             return render_template("register.html", title="Register")
 
+        # SECURITY IMPROVEMENT: Hash the password with automatic salt generation
+        password_hash = generate_password_hash(password)
+
         # Save to database
         db = get_database()
         try:
+            # Store the hashed password instead of plaintext
             db.execute("INSERT INTO users (name, andrew_id, password) VALUES (?, ?, ?)", 
-                      (name, andrew_id, password))
+                      (name, andrew_id, password_hash))
             db.commit()
             flash("You registered successfully! Now you can login.", "success")
             return redirect(url_for("login"))
@@ -103,7 +115,7 @@ def register():
     
     return render_template("register.html", title="Register")
 
-# Login user
+# Login user - UPDATED FOR LAB 3 SECURITY
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -111,13 +123,13 @@ def login():
         andrew_id = request.form.get("andrew_id", "").strip().lower()
         password = request.form.get("password", "")
 
-        # Check if user exists
+        # Get user from database by andrew_id only
         db = get_database()
-        user = db.execute("SELECT * FROM users WHERE andrew_id = ? AND password = ?", 
-                         (andrew_id, password)).fetchone()
+        user = db.execute("SELECT * FROM users WHERE andrew_id = ?", (andrew_id,)).fetchone()
         db.close()
 
-        if user:
+        # SECURITY IMPROVEMENT: Use check_password_hash for secure password verification
+        if user and check_password_hash(user["password"], password):
             # Login successful
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
@@ -139,7 +151,7 @@ def dashboard():
     all_files = db.execute("SELECT * FROM files ORDER BY upload_timestamp DESC").fetchall()
     db.close()
     
-    welcome_message = f"Hello {user['name']}, Welcome to Lab 2 of Information Security course. Enjoy your learning journey!!!"
+    welcome_message = f"Hello {user['name']}, Welcome to Lab 3 of Information Security course. Enjoy your learning journey!!!"
     return render_template("dashboard.html", title="Dashboard", greeting=welcome_message, user=user, files=all_files)
 
 # Logout
@@ -212,5 +224,5 @@ def delete_file(filename):
 
 # Run the app
 if __name__ == "__main__":
-    print("Starting my Flask app...")
+    print("Starting my secure Flask app for Lab 3...")
     app.run(host="0.0.0.0", port=5000, debug=True)
