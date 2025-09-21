@@ -1,41 +1,25 @@
 """
 Information Security Fall 2025 Lab - Flask Application
 -----------------------------------------------------
-Short description: Course-branded web app that supports registration
-(Name, Andrew ID, Password), login, session-based greeting, logout,
-and file sharing functionality for Lab 2.
-Includes a landing page, CMU-themed styling, and basic file operations.
-
-Lab 3 Update: Added secure password hashing with werkzeug.security
+Short description: Minimal course-branded web app that supports registration
+(Name, Andrew ID, Password), login, session-based greeting, and logout.
+Includes a landing page and CMU-themed styling.
 
 Routes:
 - GET /          : Landing page with welcome message + Login/Register buttons.
 - GET/POST /register : Register with name, Andrew ID, and password; on success redirect to /login.
 - GET/POST /login    : Login with Andrew ID + password; on success redirect to /dashboard.
-- GET /dashboard     : Dashboard with greeting, file upload form, and list of all uploaded files.
+- GET /dashboard     : Greets authenticated user: "Hello {Name}, Welcome to Lab 0 of Information Security course. Enjoy!!!"
 - GET /logout        : Clear session and return to landing page.
-- POST /upload       : Handle file uploads; save file to uploads/ folder and metadata to database.
-- GET /download/<filename> : Download a file from the uploads/ folder.
-- POST /delete/<filename>  : Delete a file from both database and uploads/ folder.
+"""
 
-Lab 2 Features:
-- File upload functionality with form on dashboard
-- File listing showing filename, uploader, and upload timestamp
-- File download capability for any logged-in user
-- File deletion capability for any logged-in user
-- All files visible to all logged-in users (no ownership restrictions)
-
-Lab 3 Security Features:
-- Secure password hashing using PBKDF2-SHA256
-- Automatic salt generation for each password
-- Secure password verification during login
-"""  
-
-
-from flask import Flask, request, redirect, render_template, session, url_for, flash, send_from_directory
+from flask import Flask, request, redirect, render_template, session, url_for, flash, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
 import sqlite3
 import os
+import io
 
 # Make a new Flask app
 app = Flask(__name__)
@@ -47,6 +31,77 @@ uploads_folder = 'uploads'
 # Make the uploads folder if it doesn't exist
 if not os.path.exists(uploads_folder):
     os.makedirs(uploads_folder)
+
+# AES Key Management
+AES_KEY_FILE = "secret_aes.key"
+
+def load_aes_key():
+    """Load the AES key from file"""
+    try:
+        with open(AES_KEY_FILE, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"[!] AES key file '{AES_KEY_FILE}' not found!")
+        print("[!] Run 'python generate_key.py' to create the key file.")
+        exit(1)
+
+# Load AES key at startup
+AES_KEY = load_aes_key()
+
+def encrypt_file_content(file_content):
+    """
+    Encrypt file content using AES-256 in CBC mode.
+    Prepends the IV to the ciphertext for later decryption.
+    
+    Args:
+        file_content (bytes): Raw file content to encrypt
+        
+    Returns:
+        bytes: IV + encrypted content
+    """
+    # Generate a random 16-byte IV for this file
+    iv = get_random_bytes(16)
+    
+    # Create AES cipher in CBC mode
+    cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
+    
+    # Pad the content to be multiple of 16 bytes (AES block size)
+    # PKCS7 padding
+    pad_length = 16 - (len(file_content) % 16)
+    padded_content = file_content + bytes([pad_length] * pad_length)
+    
+    # Encrypt the content
+    ciphertext = cipher.encrypt(padded_content)
+    
+    # Return IV + ciphertext (IV needed for decryption)
+    return iv + ciphertext
+
+def decrypt_file_content(encrypted_content):
+    """
+    Decrypt file content that was encrypted with encrypt_file_content.
+    Expects IV to be prepended to the ciphertext.
+    
+    Args:
+        encrypted_content (bytes): IV + encrypted content
+        
+    Returns:
+        bytes: Original file content
+    """
+    # Extract IV (first 16 bytes) and ciphertext (rest)
+    iv = encrypted_content[:16]
+    ciphertext = encrypted_content[16:]
+    
+    # Create AES cipher in CBC mode with extracted IV
+    cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
+    
+    # Decrypt
+    padded_content = cipher.decrypt(ciphertext)
+    
+    # Remove PKCS7 padding
+    pad_length = padded_content[-1]
+    original_content = padded_content[:-pad_length]
+    
+    return original_content
 
 # Database stuff
 def get_database():
@@ -151,7 +206,7 @@ def dashboard():
     all_files = db.execute("SELECT * FROM files ORDER BY upload_timestamp DESC").fetchall()
     db.close()
     
-    welcome_message = f"Hello {user['name']}, Welcome to Lab 3 of Information Security course. Enjoy your learning journey!!!"
+    welcome_message = f"Hello {user['name']}, Welcome to Lab 4 of Information Security course. Enjoy your learning journey!!!"
     return render_template("dashboard.html", title="Dashboard", greeting=welcome_message, user=user, files=all_files)
 
 # Logout
@@ -160,7 +215,7 @@ def logout():
     session.clear()
     return redirect(url_for("index"))
 
-# Upload file
+# Upload file - UPDATED FOR LAB 4 ENCRYPTION
 @app.route("/upload", methods=["POST"])
 def upload_file():
     user = who_is_logged_in()
@@ -177,10 +232,18 @@ def upload_file():
         flash('You did not choose a file!', 'error')
         return redirect(url_for('dashboard'))
     
-    # Save the file
+    # Read file content into memory
+    file_content = my_file.read()
+    
+    # LAB 4: Encrypt the file content
+    encrypted_content = encrypt_file_content(file_content)
+    
+    # Save the encrypted content to disk
     file_name = my_file.filename
     file_path = os.path.join(uploads_folder, file_name)
-    my_file.save(file_path)
+    
+    with open(file_path, 'wb') as f:
+        f.write(encrypted_content)
     
     # Save info to database
     db = get_database()
@@ -189,17 +252,44 @@ def upload_file():
     db.commit()
     db.close()
     
-    flash('Your file was uploaded!', 'success')
+    flash('Your file was uploaded and encrypted!', 'success')
     return redirect(url_for('dashboard'))
 
-# Download file
+# Download file - UPDATED FOR LAB 4 DECRYPTION
 @app.route("/download/<filename>")
 def download_file(filename):
     user = who_is_logged_in()
     if not user:
         return redirect(url_for("login"))
     
-    return send_from_directory(uploads_folder, filename)
+    file_path = os.path.join(uploads_folder, filename)
+    
+    if not os.path.exists(file_path):
+        flash("File not found!", "error")
+        return redirect(url_for("dashboard"))
+    
+    # LAB 4: Read encrypted file and decrypt it
+    with open(file_path, 'rb') as f:
+        encrypted_content = f.read()
+    
+    # Decrypt the content
+    try:
+        decrypted_content = decrypt_file_content(encrypted_content)
+    except Exception as e:
+        flash("Error decrypting file!", "error")
+        print(f"Decryption error: {e}")
+        return redirect(url_for("dashboard"))
+    
+    # Create a file-like object from decrypted content
+    file_obj = io.BytesIO(decrypted_content)
+    
+    # Send the decrypted file to user
+    return send_file(
+        file_obj,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/octet-stream'
+    )
 
 # Delete file
 @app.route("/delete/<filename>", methods=["POST"])
@@ -224,5 +314,5 @@ def delete_file(filename):
 
 # Run the app
 if __name__ == "__main__":
-    print("Starting my secure Flask app for Lab 3...")
+    print("Starting my secure Flask app for Lab 4...")
     app.run(host="0.0.0.0", port=5000, debug=True)
