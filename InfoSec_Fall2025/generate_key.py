@@ -1,3 +1,4 @@
+ # generate_key.py 
 from Crypto.Random import get_random_bytes
 
 def generate_key(filename="secret_aes.key"):
