@@ -1,0 +1,58 @@
+<!-- Information Security Fall 2025 Lab - Two-Factor Authentication Page
+Short description: OTP verification form for Lab 5 2FA implementation. -->
+
+{% extends "base.html" %} 
+
+{% block content %}
+<div class="card">
+  <h3>Two-Factor Authentication</h3>
+  <p>Please enter your 6-digit One-Time Password (OTP) to complete login.</p>
+  
+  <form method="post" class="form">
+    <label for="otp">Enter your OTP:</label>
+    <input
+      id="otp"
+      name="otp"
+      type="text"
+      required
+      maxlength="6"
+      placeholder="123456"
+      style="text-align: center; font-size: 20px; font-family: monospace;"
+    />
+    <button class="btn btn-primary" type="submit">Verify OTP</button>
+  </form>
+
+  <div class="actions" style="margin-top: 20px;">
+    <p class="muted">
+      <strong>Need your OTP?</strong> 
+      <a href="{{ url_for('show_otp') }}" style="color: var(--cmu-red);" target="_blank">Get current OTP here</a>
+    </p>
+    <p class="muted">
+      <a href="{{ url_for('logout') }}">Cancel and Logout</a>
+    </p>
+  </div>
+</div>
+
+<script>
+// Auto-format OTP input
+document.getElementById('otp').addEventListener('input', function(e) {
+  // Remove non-digits
+  let value = e.target.value.replace(/\D/g, '');
+  // Limit to 6 digits
+  if (value.length > 6) {
+    value = value.slice(0, 6);
+  }
+  e.target.value = value;
+});
+
+// Auto-submit when 6 digits entered
+document.getElementById('otp').addEventListener('input', function(e) {
+  if (e.target.value.length === 6) {
+    // Small delay to let user see the complete number
+    setTimeout(function() {
+      e.target.form.submit();
+    }, 500);
+  }
+});
+</script>
+{% endblock %}

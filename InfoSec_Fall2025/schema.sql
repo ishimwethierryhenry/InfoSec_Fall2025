@@ -15,3 +15,12 @@ CREATE TABLE IF NOT EXISTS files (
     uploader_andrewid TEXT NOT NULL,
     upload_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Lab 5: OTP Chain table for Two-Factor Authentication
+CREATE TABLE IF NOT EXISTS otp_chain (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    timestamp TEXT NOT NULL,
+    otp_code TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);

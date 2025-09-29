@@ -1,0 +1,72 @@
+<!-- Information Security Fall 2025 Lab - Show OTP Debug Page
+Short description: Debug page to display current OTP for testing purposes. -->
+
+{% extends "base.html" %} 
+
+{% block content %}
+<div class="card">
+  <h3>Current OTP</h3>
+  <p><strong>⚠️ For Testing Only:</strong> In a real system, this page would not exist. OTPs would be displayed on a separate device or app.</p>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <div style="background: var(--cmu-gray); padding: 20px; border-radius: 12px; border: 2px solid var(--cmu-red);">
+      <h2 style="margin: 0; font-family: monospace; font-size: 32px; color: var(--cmu-red); letter-spacing: 4px;">
+        {{ otp }}
+      </h2>
+      <p style="margin: 10px 0 0; color: #666; font-size: 14px;">
+        Current Time: {{ current_time }}
+      </p>
+    </div>
+  </div>
+
+  <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; border-left: 4px solid var(--cmu-red);">
+    <h4 style="margin-top: 0;">Instructions:</h4>
+    <ol>
+      <li>Copy the 6-digit OTP shown above</li>
+      <li>Go back to the <a href="{{ url_for('two_factor_auth') }}" style="color: var(--cmu-red);">2FA page</a></li>
+      <li>Paste the OTP and click "Verify OTP"</li>
+    </ol>
+    <p><strong>Note:</strong> OTPs change every minute and are valid for ±2 minutes.</p>
+    <p><strong>Current OTP is valid until:</strong> <span id="next-change"></span></p>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-primary" href="{{ url_for('two_factor_auth') }}">Return to 2FA Page</a>
+    <a class="btn btn-outline" href="{{ url_for('logout') }}">Logout</a>
+  </div>
+</div>
+
+<script>
+// Copy OTP to clipboard when clicked
+document.querySelector('h2').addEventListener('click', function() {
+  const otp = this.textContent;
+  navigator.clipboard.writeText(otp).then(function() {
+    alert('OTP copied to clipboard: ' + otp);
+  });
+});
+
+// Countdown timer to next OTP change with auto-refresh
+function updateCountdown() {
+  const now = new Date();
+  const currentSeconds = now.getSeconds();
+  const secondsUntilNextMinute = 60 - currentSeconds;
+  
+  const nextChangeTime = new Date(now.getTime() + (secondsUntilNextMinute * 1000));
+  const timeString = nextChangeTime.toLocaleTimeString();
+  
+  document.getElementById('next-change').textContent = timeString + ` (${secondsUntilNextMinute} seconds)`;
+  
+  // Auto-refresh page when new minute starts
+  if (secondsUntilNextMinute <= 1) {
+    location.reload();
+    return;
+  }
+  
+  // Update every second
+  setTimeout(updateCountdown, 1000);
+}
+
+// Start countdown when page loads
+document.addEventListener('DOMContentLoaded', updateCountdown);
+</script>
+{% endblock %}
