@@ -1,12 +1,14 @@
 /* 
-Information Security Fall 2025 Lab - Stylesheet
-Short description: CMU-themed styles (cardinal red, charcoal, light gray) and simple UI.
+Information Security Fall 2025 Lab - Stylesheet (Lab 6)
+CMU-themed styles with admin interface support
 */
 :root{
   --cmu-red: #C41230;
   --cmu-charcoal: #2E2E2E;
   --cmu-gray: #F4F4F4;
   --white: #FFFFFF;
+  --success-green: #186a3b;
+  --error-red: #a94442;
 }
 
 *{ box-sizing: border-box; }
@@ -41,10 +43,11 @@ html, body{
   width: 60px; height: 6px; background: var(--cmu-red); border-radius: 3px; margin-bottom: 6px;
 }
 
-.nav .btn{ margin-left: 8px; }
+.nav{ display: flex; align-items: center; gap: 8px; }
+.nav .welcome{ font-size: 14px; color: #5a5a5a; margin-right: 8px; }
 
 .container{
-  max-width: 920px;
+  max-width: 1100px;
   margin: 32px auto;
   padding: 0 20px;
 }
@@ -75,13 +78,13 @@ html, body{
   margin-top: 10px;
 }
 label{ font-weight: 600; }
-input{
+input, select{
   padding: 10px 12px;
   border: 1px solid #d9d9d9;
   border-radius: 8px;
   font-size: 14px;
 }
-input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
+input:focus, select:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
 
 .btn{
   display: inline-block;
@@ -93,6 +96,7 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
   text-decoration: none;
   font-weight: 700;
   cursor: pointer;
+  font-size: 14px;
 }
 .btn:hover{ opacity: .9; }
 .btn-outline{
@@ -101,13 +105,20 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
 }
 .btn-primary{ background: var(--cmu-red); border-color: var(--cmu-red); }
 .btn-secondary{ background: #980D23; border-color: #980D23; }
+.btn-danger{ background: #dc3545; border-color: #dc3545; color: white; }
+
+.btn-small{
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+}
 
 .actions{ display: flex; gap: 12px; justify-content: center; margin-top: 12px; }
 
 .flashes{ margin-bottom: 16px; }
 .flash{ padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; }
-.flash.success{ background: #e8f6ee; color: #186a3b; border: 1px solid #c6ead6; }
-.flash.error{ background: #fdecea; color: #a94442; border: 1px solid #f5c6cb; }
+.flash.success{ background: #e8f6ee; color: var(--success-green); border: 1px solid #c6ead6; }
+.flash.error{ background: #fdecea; color: var(--error-red); border: 1px solid #f5c6cb; }
 
 .greeting{ font-size: 18px; font-weight: 600; }
 
@@ -116,8 +127,6 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
   color: #777;
   padding: 28px 0 40px;
 }
-
-
 
 /* Password visibility toggle */
 .password-wrapper {
@@ -128,7 +137,7 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
 
 .password-wrapper input {
   flex: 1;
-  padding-right: 40px; /* space for toggle button */
+  padding-right: 40px;
 }
 
 .toggle-password {
@@ -146,20 +155,107 @@ input:focus{ outline: 2px solid var(--cmu-red); border-color: var(--cmu-red); }
   color: inherit;
 }
 
-/* Simple table styling for file list */
-table {
-  border-collapse: collapse;
-}
-
-th, td {
-  padding: 8px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
-
 .toggle-password .icon-eye-off { display: none; }
 .toggle-password.is-visible .icon-eye { display: none; }
 .toggle-password.is-visible .icon-eye-off { display: inline; }
+
+/* Lab 6: Admin Interface Styles */
+.admin-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.admin-section h4 {
+  margin-top: 0;
+  color: var(--cmu-red);
+  font-size: 18px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.admin-table thead {
+  background: var(--cmu-charcoal);
+  color: white;
+}
+
+.admin-table th, .admin-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.admin-table th {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Outcome chips for audit logs */
+.outcome-chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.outcome-allowed {
+  background: #e8f6ee;
+  color: var(--success-green);
+  border: 1px solid #c6ead6;
+}
+
+.outcome-denied {
+  background: #fdecea;
+  color: var(--error-red);
+  border: 1px solid #f5c6cb;
+}
+
+/* Audit table specific styling */
+.audit-table th:nth-child(1) { width: 180px; }
+.audit-table th:nth-child(2) { width: 120px; }
+.audit-table th:nth-child(3) { width: 180px; }
+.audit-table th:nth-child(4) { width: auto; }
+.audit-table th:nth-child(5) { width: 100px; text-align: center; }
+.audit-table td:nth-child(5) { text-align: center; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .site-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .admin-table {
+    font-size: 13px;
+  }
+  
+  .admin-table th, .admin-table td {
+    padding: 8px;
+  }
+}

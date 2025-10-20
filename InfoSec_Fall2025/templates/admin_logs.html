@@ -1,0 +1,49 @@
+<!-- Information Security Fall 2025 Lab - Audit Logs Page (Lab 6)
+Displays audit trail of all admin actions -->
+
+{% extends "base.html" %} 
+
+{% block content %}
+<div class="card">
+  <h3>Audit Logs</h3>
+  <p>Security audit trail showing all admin actions (allowed and denied).</p>
+
+  {% if logs %}
+  <div class="admin-section">
+    <table class="admin-table audit-table">
+      <thead>
+        <tr>
+          <th>Timestamp (UTC)</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at }}</td>
+          <td><strong>{{ log.actor_andrew_id }}</strong></td>
+          <td>{{ log.action }}</td>
+          <td>{{ log.target }}</td>
+          <td>
+            <span class="outcome-chip outcome-{{ log.outcome }}">
+              {{ log.outcome }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>No audit logs yet. Admin actions will appear here.</p>
+  {% endif %}
+
+  <div class="actions" style="margin-top: 20px;">
+    <a class="btn btn-outline" href="{{ url_for('admin_users') }}">Back to Administration</a>
+    <a class="btn btn-outline" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

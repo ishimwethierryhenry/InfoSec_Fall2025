@@ -154,3 +154,20 @@ Note: Youtube Tutorials may help in installation process
 
 - What is Flask? https://flask.palletsprojects.com/en/stable/
 
+
+## Security Design Note
+
+As confirmed by the instructor regarding HW06, all authorization decisions in this application 
+are based on the `role` field in the database, NOT on specific Andrew IDs.
+
+**Role-based authorization:**
+- Basic users (`role='basic'`) can manage their own files
+- User admins (`role='user_admin'`) can manage users and roles
+- Data admins (`role='data_admin'`) can manage all files
+
+**Andrew IDs are only used for:**
+- User identification during login
+- Display purposes in audit logs
+- Self-delete prevention (comparing target vs. current user)
+
+No authorization logic depends on specific Andrew ID values.

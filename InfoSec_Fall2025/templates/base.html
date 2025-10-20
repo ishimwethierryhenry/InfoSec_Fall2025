@@ -1,6 +1,9 @@
 <!-- Information Security Fall 2025 Lab - Base Template
 Short description: Shared HTML layout with CMU-themed styles and messages. -->
 
+<!--(Lab 6)
+Short description: Shared HTML layout with admin navigation support -->
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -27,14 +30,22 @@ Short description: Shared HTML layout with CMU-themed styles and messages. -->
             >Information Security Fall 2025 Lab</a
           >
         </h1>
-        <span class="sub">CMU-Africa</span>
+        <span class="sub">CMU-Africa • Lab 6: RBAC</span>
       </div>
       <nav class="nav">
         {% if user %}
-        <span class="welcome">Hi, {{ user.name }}</span>
+        <span class="welcome">Hi, {{ user.name }} ({{ user.role }})</span>
         <a class="btn btn-outline" href="{{ url_for('dashboard') }}"
           >Dashboard</a
         >
+        {% if user.role in ['user_admin', 'data_admin'] %}
+        <a class="btn btn-outline" href="{{ url_for('admin_users') }}"
+          >Administration</a
+        >
+        <a class="btn btn-outline" href="{{ url_for('admin_logs') }}"
+          >Audit Logs</a
+        >
+        {% endif %}
         <a class="btn" href="{{ url_for('logout') }}">Logout</a>
         {% else %}
         <a class="btn" href="{{ url_for('login') }}">Login</a>
