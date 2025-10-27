@@ -37,6 +37,36 @@ ROLE_DATA_ADMIN = "data_admin"
 # Flask App Setup
 app = Flask(__name__)
 app.secret_key = "my-secret-key-for-school-project"
+# Lab 7: HTTPS redirect function
+@app.before_request
+def _force_https_when_possible():
+    """
+    Redirect HTTP requests to HTTPS for security.
+    Only redirects GET/HEAD to avoid breaking POST bodies.
+    """
+    if request.is_secure:
+        return None
+    
+    if request.headers.get('X-Forwarded-Proto', '').lower() == 'https':
+        return None
+    
+    if request.method in ['GET', 'HEAD']:
+        url = request.url.replace('http://', 'https://', 1)
+        return redirect(url, code=301)
+    
+    return None
+
+# Lab 7: HSTS security header
+@app.after_request
+def _set_security_headers(response):
+    """
+    Add Strict-Transport-Security header to enforce HTTPS.
+    Tells browsers to only connect via HTTPS for the next 30 days.
+    """
+    if request.is_secure or request.headers.get('X-Forwarded-Proto', '').lower() == 'https':
+        response.headers['Strict-Transport-Security'] = 'max-age=2592000; includeSubDomains'
+    
+    return response
 
 # Upload Configuration
 uploads_folder = 'uploads'
@@ -774,5 +804,39 @@ def admin_logs():
 
 # Run the app
 if __name__ == "__main__":
-    print("Starting Flask app for Lab 6 - RBAC with Audit Logging...")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    print("=" * 60)
+    print("Information Security Lab 7 - HTTPS Development Server")
+    print("=" * 60)
+    
+    # SSL certificate paths
+    cert_file = os.getenv('SSL_CERT_FILE', 'certs/dev-cert.pem')
+    key_file = os.getenv('SSL_KEY_FILE', 'certs/dev-key.pem')
+    
+    # Check if both certificate files exist
+    cert_exists = os.path.exists(cert_file)
+    key_exists = os.path.exists(key_file)
+    
+    if cert_exists and key_exists:
+        print(f"SSL Certificate: {cert_file}")
+        print(f"SSL Key: {key_file}")
+        print()
+        print("HTTPS Server Starting...")
+        print("   URL: https://localhost:5000")
+        print("=" * 60)
+        
+        app.run(
+            host="0.0.0.0",
+            port=5000,
+            debug=False,
+            ssl_context=(cert_file, key_file)
+        )
+    else:
+        print("⚠ WARNING: SSL certificates not found!")
+        print(f"  Certificate: {cert_file} - {'Found' if cert_exists else 'Missing'}")
+        print(f"  Key: {key_file} - {'Found' if key_exists else 'Missing'}")
+        print()
+        print("Running HTTP mode (INSECURE)")
+        print("   URL: http://localhost:5000")
+        print("=" * 60)
+        
+        app.run(host="0.0.0.0", port=5000, debug=True)
